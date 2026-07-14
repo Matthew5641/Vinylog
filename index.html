@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Vinylog — your listening diary</title>
+
+<!-- iOS home-screen behaviour -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vinylog">
+<meta name="theme-color" content="#16121A">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2316121A'/%3E%3Ccircle cx='50' cy='50' r='34' fill='%23211B29' stroke='%23E8A33D' stroke-width='3'/%3E%3Ccircle cx='50' cy='50' r='7' fill='%23E8A33D'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23211B29' stroke='%23E8A33D' stroke-width='4'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%23E8A33D'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#16121A;
+    --surface:#211B29;
+    --surface-2:#2B2333;
+    --surface-3:#382E44;
+    --text:#F2ECE4;
+    --muted:#9C90A8;
+    --gold:#E8A33D;
+    --teal:#4FADA0;
+    --red:#C1554D;
+    --line: rgba(242,236,228,0.08);
+    --radius: 14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  body{padding-bottom:78px; overscroll-behavior-y: none;}
+  ::selection{background:var(--gold); color:#16121A;}
+
+  h1,h2,h3, .display{font-family:'Bebas Neue', sans-serif; letter-spacing:0.02em;}
+  .mono{font-family:'JetBrains Mono', monospace;}
+
+  a{color:inherit;}
+  button{font-family:inherit; cursor:pointer;}
+
+  /* ---------- Top bar ---------- */
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg, rgba(22,18,26,0.98), rgba(22,18,26,0.9));
+    backdrop-filter: blur(8px);
+    padding: 14px 16px 10px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .disc{
+    width:30px; height:30px; border-radius:50%;
+    background: radial-gradient(circle at 50% 50%, var(--gold) 0 14%, var(--surface-3) 15% 40%, var(--surface) 41% 100%);
+    border:1px solid var(--line);
+    flex:none;
+    animation: spin 6s linear infinite paused;
+  }
+  .brand.spinning .disc{ animation-play-state: running; }
+  .brand h1{font-size:28px; margin:0; line-height:1; color:var(--text);}
+  .brand span{color:var(--gold);}
+  @keyframes spin{ to{ transform: rotate(360deg);} }
+
+  .search-row{display:flex; gap:8px; margin-top:12px;}
+  .search-row input{
+    flex:1; background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:11px 14px; border-radius:999px; font-size:15px; outline:none;
+  }
+  .search-row input:focus{border-color:var(--gold);}
+  .search-row button{
+    background:var(--gold); color:#16121A; border:none; border-radius:999px;
+    padding:0 18px; font-weight:700; font-size:14px;
+  }
+
+  /* ---------- Tabs / nav ---------- */
+  nav.tabbar{
+    position:fixed; bottom:0; left:0; right:0; z-index:30;
+    display:flex; background:var(--surface); border-top:1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; color:var(--muted);
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:10px 4px 8px; font-size:10.5px; letter-spacing:0.03em; text-transform:uppercase;
+  }
+  nav.tabbar button.active{color:var(--gold);}
+  nav.tabbar svg{width:20px; height:20px;}
+
+  main{padding:14px 16px 20px; max-width:640px; margin:0 auto;}
+  .view{display:none;}
+  .view.active{display:block; animation: fadein 0.25s ease;}
+  @keyframes fadein{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  .section-title{display:flex; align-items:baseline; justify-content:space-between; margin:18px 0 10px;}
+  .section-title h2{font-size:22px; margin:0; color:var(--text);}
+  .section-title .count{color:var(--muted); font-size:12px;}
+
+  /* ---------- Album grid ---------- */
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  .sleeve{
+    position:relative; border-radius:10px; overflow:hidden; background:var(--surface);
+    aspect-ratio:1/1; cursor:pointer; border:1px solid var(--line);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .sleeve img{width:100%; height:100%; object-fit:cover; display:block;}
+  .sleeve:active{ transform: scale(0.96) rotate(-1.5deg); }
+  .sleeve .badge{
+    position:absolute; top:5px; right:5px; background:rgba(22,18,26,0.85);
+    border-radius:6px; padding:2px 5px; font-size:10px; color:var(--gold); font-family:'JetBrains Mono',monospace;
+  }
+  .sleeve .rating-chip{
+    position:absolute; bottom:0; left:0; right:0; background:linear-gradient(0deg, rgba(22,18,26,0.92), transparent);
+    padding:12px 5px 4px; font-size:11px; color:var(--gold); text-align:center; letter-spacing:0.05em;
+  }
+  .grid.list-rows{grid-template-columns:1fr;}
+  .row-card{
+    display:flex; gap:12px; align-items:center; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:9px; cursor:pointer;
+  }
+  .row-card img{width:56px; height:56px; border-radius:7px; object-fit:cover; flex:none;}
+  .row-card .meta{flex:1; min-width:0;}
+  .row-card .meta .name{font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row-card .meta .artist{color:var(--muted); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row-card .stars{color:var(--gold); font-size:12px; margin-top:3px;}
+  .row-card .qk{background:var(--surface-3); border:none; color:var(--text); border-radius:8px; padding:8px 10px; font-size:11px; flex:none;}
+
+  .empty{
+    text-align:center; color:var(--muted); padding:40px 20px; border:1px dashed var(--line); border-radius:14px; font-size:14px;
+  }
+  .empty b{color:var(--text); display:block; font-family:'Bebas Neue'; font-size:20px; letter-spacing:0.03em; margin-bottom:6px;}
+
+  /* ---------- Modal ---------- */
+  .modal-back{
+    position:fixed; inset:0; background:rgba(10,8,12,0.7); z-index:50; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-back.active{display:flex;}
+  .modal{
+    background:var(--bg); width:100%; max-width:640px; max-height:92vh; overflow-y:auto;
+    border-radius:20px 20px 0 0; border:1px solid var(--line); border-bottom:none;
+    animation: slideup 0.28s cubic-bezier(.2,.8,.2,1);
+    padding-bottom: 30px;
+  }
+  @keyframes slideup{ from{transform:translateY(100%);} to{transform:translateY(0);} }
+  .modal-handle{width:36px; height:4px; background:var(--surface-3); border-radius:99px; margin:10px auto 4px;}
+  .modal-close{position:sticky; top:8px; float:right; margin:6px 12px 0 0; background:var(--surface); border:1px solid var(--line); color:var(--text); width:30px; height:30px; border-radius:50%; z-index:5;}
+
+  .album-hero{display:flex; gap:14px; padding:6px 18px 10px; align-items:flex-end;}
+  .album-hero img{width:118px; height:118px; border-radius:10px; object-fit:cover; box-shadow:0 10px 24px rgba(0,0,0,0.4); flex:none;}
+  .album-hero .info h2{font-size:26px; margin:0 0 2px; line-height:1.02;}
+  .album-hero .info .artist{color:var(--gold); font-size:15px; font-weight:600;}
+  .album-hero .info .sub{color:var(--muted); font-size:12px; margin-top:4px; font-family:'JetBrains Mono',monospace;}
+
+  .action-row{display:flex; gap:8px; padding:12px 18px 4px;}
+  .action-row button{
+    flex:1; padding:11px 8px; border-radius:11px; border:1px solid var(--line); background:var(--surface);
+    color:var(--text); font-size:12.5px; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .action-row button.on{background:var(--gold); color:#16121A; border-color:var(--gold);}
+  .action-row button svg{width:17px;height:17px;}
+
+  .block{padding:14px 18px; border-top:1px solid var(--line);}
+  .block h3{margin:0 0 10px; font-size:16px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; font-family:'Inter'; font-weight:700;}
+
+  .stars-input{display:flex; gap:6px; font-size:30px; line-height:1;}
+  .stars-input span{cursor:pointer; color:var(--surface-3); transition:color 0.1s;}
+  .stars-input span.filled{color:var(--gold);}
+
+  .track-list{display:flex; flex-direction:column; gap:2px;}
+  .track-row{display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px;}
+  .track-row:active{background:var(--surface);}
+  .track-row .num{width:20px; text-align:right; color:var(--muted); font-size:12px; font-family:'JetBrains Mono';}
+  .track-row .tname{flex:1; font-size:14px;}
+  .track-row .dur{color:var(--muted); font-size:12px; font-family:'JetBrains Mono';}
+  .track-row input[type=checkbox]{accent-color:var(--gold); width:18px; height:18px; flex:none;}
+  .fav-hint{color:var(--muted); font-size:12px; margin-bottom:8px;}
+
+  textarea.review{
+    width:100%; background:var(--surface); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:10px 12px; font-family:inherit; font-size:14px; min-height:70px; resize:vertical;
+  }
+  .date-row{display:flex; align-items:center; gap:10px; margin-top:10px;}
+  .date-row input[type=date]{background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 9px; font-family:inherit;}
+
+  .save-bar{padding:14px 18px 2px;}
+  .save-bar button{
+    width:100%; background:var(--gold); color:#16121A; border:none; border-radius:12px; padding:13px; font-weight:700; font-size:15px;
+  }
+  .list-chip-row{display:flex; flex-wrap:wrap; gap:8px;}
+  .list-chip{background:var(--surface); border:1px solid var(--line); padding:7px 12px; border-radius:999px; font-size:12.5px;}
+  .list-chip.on{background:var(--teal); color:#0d211f; border-color:var(--teal); font-weight:600;}
+
+  /* ---------- Lists tab ---------- */
+  .new-list-row{display:flex; gap:8px; margin-bottom:14px;}
+  .new-list-row input{flex:1; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-family:inherit;}
+  .new-list-row button{background:var(--surface-3); color:var(--text); border:none; border-radius:10px; padding:0 16px; font-weight:700;}
+  .list-card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; cursor:pointer;}
+  .list-card h3{margin:0 0 8px; font-size:17px;}
+  .list-covers{display:flex;}
+  .list-covers img{width:44px; height:44px; border-radius:6px; object-fit:cover; margin-left:-14px; border:2px solid var(--surface);}
+  .list-covers img:first-child{margin-left:0;}
+  .list-card .n{color:var(--muted); font-size:12px; margin-top:8px;}
+
+  /* ---------- Stats ---------- */
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;}
+  .stat-card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px;}
+  .stat-card .n{font-family:'Bebas Neue'; font-size:32px; color:var(--gold); line-height:1;}
+  .stat-card .l{color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; margin-top:4px;}
+  .bar-row{display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:13px;}
+  .bar-row .lbl{width:78px; flex:none; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bar-track{flex:1; background:var(--surface-2); border-radius:6px; height:9px; overflow:hidden;}
+  .bar-fill{height:100%; background:var(--teal);}
+  .bar-row .val{width:26px; text-align:right; color:var(--muted); font-family:'JetBrains Mono'; font-size:11px;}
+
+  .toast{
+    position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:var(--surface-3); color:var(--text);
+    padding:10px 18px; border-radius:999px; font-size:13px; z-index:60; opacity:0; pointer-events:none; transition:opacity 0.2s, transform 0.2s; border:1px solid var(--line);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
+
+  .settings-row{display:flex; gap:10px; margin-top:6px;}
+  .settings-row button{flex:1; background:var(--surface); border:1px solid var(--line); color:var(--text); padding:11px; border-radius:11px; font-size:13px; font-weight:600;}
+  input[type=file]{display:none;}
+
+  .loading{text-align:center; color:var(--muted); padding:30px; font-size:13px;}
+  .recents{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:4px;}
+  .recents img{width:52px; height:52px; border-radius:8px; object-fit:cover; flex:none; cursor:pointer; border:1px solid var(--line);}
+
+  @media (min-width:480px){ .grid{grid-template-columns:repeat(4,1fr);} }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand" id="brandSpin"><div class="disc"></div><h1>Vinyl<span>og</span></h1></div>
+  <div class="search-row">
+    <input id="searchInput" type="search" placeholder="Search an album or artist…" autocomplete="off">
+    <button id="searchBtn">Find</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- SEARCH / HOME -->
+  <section class="view active" id="view-search">
+    <div id="recentsWrap"></div>
+    <div id="searchResults"></div>
+  </section>
+
+  <!-- LISTEN LATER -->
+  <section class="view" id="view-later">
+    <div class="section-title"><h2>Listen later</h2><span class="count" id="laterCount"></span></div>
+    <div id="laterList"></div>
+  </section>
+
+  <!-- DIARY -->
+  <section class="view" id="view-diary">
+    <div class="section-title"><h2>Diary</h2><span class="count" id="diaryCount"></span></div>
+    <div id="diaryList"></div>
+  </section>
+
+  <!-- LISTS -->
+  <section class="view" id="view-lists">
+    <div class="section-title"><h2>Your lists</h2></div>
+    <div class="new-list-row">
+      <input id="newListName" placeholder="New list name…">
+      <button id="newListBtn">Create</button>
+    </div>
+    <div id="listsWrap"></div>
+  </section>
+
+  <!-- STATS -->
+  <section class="view" id="view-stats">
+    <div class="section-title"><h2>Stats</h2></div>
+    <div id="statsWrap"></div>
+    <div class="section-title"><h2>Data</h2></div>
+    <div class="settings-row">
+      <button id="exportBtn">⭳ Export backup</button>
+      <button id="importBtn">⭱ Import backup</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json">
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button class="tab active" data-view="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    Search
+  </button>
+  <button class="tab" data-view="later">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>
+    Later
+  </button>
+  <button class="tab" data-view="diary">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 2v4M16 2v4M4 10h16"/></svg>
+    Diary
+  </button>
+  <button class="tab" data-view="lists">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    Lists
+  </button>
+  <button class="tab" data-view="stats">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+    Stats
+  </button>
+</nav>
+
+<div class="modal-back" id="modalBack">
+  <div class="modal" id="modal"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= STORAGE ================= */
+  const STORE_KEY = "vinylog_data_v1";
+  function loadData(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return { listenLater:[], listened:[], lists:{}, recents:[] };
+  }
+  let data = loadData();
+  function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+
+  /* ================= HELPERS ================= */
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._h);
+    toast._h = setTimeout(()=>t.classList.remove('show'), 1800);
+  }
+  function hiRes(url){ return url ? url.replace('100x100','600x600') : ''; }
+  function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function fmtDate(iso){
+    if(!iso) return '';
+    const d = new Date(iso+"T00:00:00");
+    return d.toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'});
+  }
+  function todayISO(){ return new Date().toISOString().slice(0,10); }
+  function msToTime(ms){
+    if(!ms) return '';
+    const s = Math.round(ms/1000);
+    return Math.floor(s/60)+":"+String(s%60).padStart(2,'0');
+  }
+
+  /* ================= iTUNES API ================= */
+  async function searchAlbums(term){
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=album&limit=24`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return json.results || [];
+  }
+  async function fetchTracks(collectionId){
+    const url = `https://itunes.apple.com/lookup?id=${collectionId}&entity=song`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return (json.results || []).filter(r => r.wrapperType === 'track')
+      .sort((a,b)=> (a.trackNumber||0) - (b.trackNumber||0));
+  }
+
+  function albumFromResult(r){
+    return {
+      id: String(r.collectionId),
+      name: r.collectionName,
+      artist: r.artistName,
+      artwork: hiRes(r.artworkUrl100),
+      releaseDate: (r.releaseDate||'').slice(0,10),
+      genre: r.primaryGenreName || '',
+      trackCount: r.trackCount || 0
+    };
+  }
+
+  /* ================= NAV ================= */
+  const views = ['search','later','diary','lists','stats'];
+  function showView(v){
+    views.forEach(id=>{
+      document.getElementById('view-'+id).classList.toggle('active', id===v);
+    });
+    document.querySelectorAll('.tab').forEach(b=> b.classList.toggle('active', b.dataset.view===v));
+    if(v==='later') renderLater();
+    if(v==='diary') renderDiary();
+    if(v==='lists') renderLists();
+    if(v==='stats') renderStats();
+  }
+  document.querySelectorAll('.tab').forEach(b=> b.addEventListener('click', ()=> showView(b.dataset.view)));
+
+  /* ================= SEARCH VIEW ================= */
+  const searchInput = document.getElementById('searchInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const resultsWrap = document.getElementById('searchResults');
+  const recentsWrap = document.getElementById('recentsWrap');
+
+  function renderRecents(){
+    if(!data.recents || !data.recents.length){ recentsWrap.innerHTML=''; return; }
+    recentsWrap.innerHTML = `<div class="section-title"><h2>Recently viewed</h2></div>
+      <div class="recents">${data.recents.slice(0,10).map(a=>`<img src="${a.artwork}" data-id="${a.id}" alt="">`).join('')}</div>`;
+    recentsWrap.querySelectorAll('img').forEach(img=>{
+      img.addEventListener('click', ()=>{
+        const a = data.recents.find(x=>x.id===img.dataset.id);
+        if(a) openAlbum(a);
+      });
+    });
+  }
+  renderRecents();
+
+  async function doSearch(){
+    const term = searchInput.value.trim();
+    if(!term) return;
+    resultsWrap.innerHTML = `<div class="loading">Searching the crates…</div>`;
+    try{
+      const results = await searchAlbums(term);
+      if(!results.length){
+        resultsWrap.innerHTML = `<div class="empty"><b>No albums found</b>Try a different spelling, or search by artist name.</div>`;
+        return;
+      }
+      const albums = results.map(albumFromResult);
+      resultsWrap.innerHTML = `<div class="section-title"><h2>Results</h2><span class="count">${albums.length}</span></div>
+        <div class="grid">${albums.map(sleeveHTML).join('')}</div>`;
+      wireGrid(resultsWrap, albums);
+    }catch(e){
+      resultsWrap.innerHTML = `<div class="empty"><b>Couldn't reach the music library</b>Check your connection and try again.</div>`;
+    }
+  }
+  searchBtn.addEventListener('click', doSearch);
+  searchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
+
+  function sleeveHTML(a){
+    const listened = data.listened.find(x=>x.id===a.id);
+    const badge = listened ? `<div class="rating-chip">${'★'.repeat(listened.rating)}${'☆'.repeat(5-listened.rating)}</div>` : '';
+    return `<div class="sleeve" data-id="${a.id}"><img loading="lazy" src="${a.artwork}" alt="${esc(a.name)}">${badge}</div>`;
+  }
+  function wireGrid(container, albums){
+    container.querySelectorAll('.sleeve').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const a = albums.find(x=>x.id===el.dataset.id);
+        if(a) openAlbum(a);
+      });
+    });
+  }
+
+  /* ================= ALBUM MODAL ================= */
+  const modalBack = document.getElementById('modalBack');
+  const modalEl = document.getElementById('modal');
+  let currentAlbum = null;
+  let currentTracks = [];
+  let pendingRating = 0;
+  let pendingFavs = [];
+
+  function pushRecent(a){
+    data.recents = [a, ...data.recents.filter(x=>x.id!==a.id)].slice(0,20);
+    save();
+  }
+
+  async function openAlbum(a){
+    currentAlbum = a;
+    pushRecent(a);
+    const inLater = data.listenLater.some(x=>x.id===a.id);
+    const listenedEntry = data.listened.find(x=>x.id===a.id);
+    pendingRating = listenedEntry ? listenedEntry.rating : 0;
+    pendingFavs = listenedEntry ? [...listenedEntry.favSongs] : [];
+
+    modalEl.innerHTML = albumModalHTML(a, inLater, listenedEntry);
+    modalBack.classList.add('active');
+    wireModalStatic(a, listenedEntry);
+
+    const tlEl = document.getElementById('trackListWrap');
+    tlEl.innerHTML = `<div class="loading">Loading tracklist…</div>`;
+    try{
+      currentTracks = await fetchTracks(a.id);
+      renderTrackList(listenedEntry);
+    }catch(e){
+      tlEl.innerHTML = `<div class="loading">Tracklist unavailable right now.</div>`;
+    }
+  }
+
+  function albumModalHTML(a, inLater, listenedEntry){
+    return `
+      <div class="modal-handle"></div>
+      <button class="modal-close" id="closeModal">✕</button>
+      <div class="album-hero">
+        <img src="${a.artwork}" alt="">
+        <div class="info">
+          <h2>${esc(a.name)}</h2>
+          <div class="artist">${esc(a.artist)}</div>
+          <div class="sub">${a.releaseDate ? a.releaseDate.slice(0,4) : '—'} · ${esc(a.genre)} · ${a.trackCount} tracks</div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button id="laterBtn" class="${inLater?'on':''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>
+          ${inLater ? 'On queue' : 'Listen later'}
+        </button>
+        <button id="listenedBtn" class="${listenedEntry?'on':''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+          ${listenedEntry ? 'Listened' : 'Mark listened'}
+        </button>
+      </div>
+
+      <div class="block">
+        <h3>Your rating</h3>
+        <div class="stars-input" id="starsInput">
+          ${[1,2,3,4,5].map(n=>`<span data-n="${n}">★</span>`).join('')}
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Tracklist &amp; favourite songs</h3>
+        <div class="fav-hint">Tap up to 3 tracks to save as favourites</div>
+        <div class="track-list" id="trackListWrap"></div>
+      </div>
+
+      <div class="block">
+        <h3>Notes</h3>
+        <textarea class="review" id="reviewInput" placeholder="Quick thoughts on this one…">${listenedEntry ? esc(listenedEntry.review||'') : ''}</textarea>
+        <div class="date-row">
+          <label style="color:var(--muted); font-size:12.5px;">Listened on</label>
+          <input type="date" id="dateInput" value="${listenedEntry ? listenedEntry.dateListened : todayISO()}" max="${todayISO()}">
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Add to a list</h3>
+        <div class="list-chip-row" id="listChipRow"></div>
+      </div>
+
+      <div class="save-bar">
+        <button id="saveBtn">${listenedEntry ? 'Update entry' : 'Save entry'}</button>
+      </div>
+    `;
+  }
+
+  function renderTrackList(listenedEntry){
+    const wrap = document.getElementById('trackListWrap');
+    if(!currentTracks.length){
+      wrap.innerHTML = `<div class="loading">No tracklist data available for this release.</div>`;
+      return;
+    }
+    wrap.innerHTML = currentTracks.map(t=>{
+      const checked = pendingFavs.includes(t.trackName) ? 'checked' : '';
+      return `<label class="track-row">
+        <input type="checkbox" data-name="${esc(t.trackName)}" ${checked}>
+        <span class="num">${t.trackNumber || ''}</span>
+        <span class="tname">${esc(t.trackName)}</span>
+        <span class="dur">${msToTime(t.trackTimeMillis)}</span>
+      </label>`;
+    }).join('');
+    wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        const name = cb.dataset.name;
+        if(cb.checked){
+          if(pendingFavs.length>=3){
+            cb.checked = false;
+            toast('Only 3 favourite songs allowed — untick one first');
+            return;
+          }
+          pendingFavs.push(name);
+        }else{
+          pendingFavs = pendingFavs.filter(n=>n!==name);
+        }
+      });
+    });
+  }
+
+  function renderStarsUI(){
+    document.querySelectorAll('#starsInput span').forEach(s=>{
+      s.classList.toggle('filled', Number(s.dataset.n) <= pendingRating);
+    });
+  }
+
+  function renderListChips(){
+    const row = document.getElementById('listChipRow');
+    const names = Object.keys(data.lists);
+    if(!names.length){
+      row.innerHTML = `<span style="color:var(--muted); font-size:12.5px;">No lists yet — create one from the Lists tab.</span>`;
+      return;
+    }
+    row.innerHTML = names.map(n=>{
+      const on = data.lists[n].some(id=>id===currentAlbum.id);
+      return `<button type="button" class="list-chip ${on?'on':''}" data-name="${esc(n)}">${esc(n)}</button>`;
+    }).join('');
+    row.querySelectorAll('.list-chip').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        const name = chip.dataset.name;
+        const arr = data.lists[name];
+        const idx = arr.indexOf(currentAlbum.id);
+        if(idx>-1){ arr.splice(idx,1); chip.classList.remove('on'); }
+        else{ arr.push(currentAlbum.id); chip.classList.add('on'); }
+        save();
+      });
+    });
+  }
+
+  function wireModalStatic(a, listenedEntry){
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('laterBtn').addEventListener('click', ()=>{
+      const idx = data.listenLater.findIndex(x=>x.id===a.id);
+      const btn = document.getElementById('laterBtn');
+      if(idx>-1){ data.listenLater.splice(idx,1); btn.classList.remove('on'); btn.innerHTML = btn.innerHTML.replace('On queue','Listen later'); toast('Removed from Listen Later'); }
+      else{ data.listenLater.push(a); btn.classList.add('on'); btn.innerHTML = btn.innerHTML.replace('Listen later','On queue'); toast('Added to Listen Later'); }
+      save();
+    });
+    document.getElementById('listenedBtn').addEventListener('click', ()=>{
+      if(pendingRating===0) pendingRating = 5;
+      renderStarsUI();
+      document.getElementById('starsInput').scrollIntoView({behavior:'smooth', block:'center'});
+    });
+    document.getElementById('starsInput').addEventListener('click', (e)=>{
+      const span = e.target.closest('span[data-n]');
+      if(!span) return;
+      pendingRating = Number(span.dataset.n);
+      renderStarsUI();
+    });
+    renderStarsUI();
+    renderListChips();
+
+    document.getElementById('saveBtn').addEventListener('click', ()=>{
+      const review = document.getElementById('reviewInput').value.trim();
+      const dateListened = document.getElementById('dateInput').value || todayISO();
+      if(pendingRating===0){
+        toast('Give it a star rating first');
+        return;
+      }
+      const entry = Object.assign({}, a, {
+        rating: pendingRating,
+        favSongs: pendingFavs.slice(0,3),
+        review,
+        dateListened
+      });
+      const idx = data.listened.findIndex(x=>x.id===a.id);
+      if(idx>-1) data.listened[idx] = entry; else data.listened.push(entry);
+      // remove from listen-later once logged
+      data.listenLater = data.listenLater.filter(x=>x.id!==a.id);
+      save();
+      toast('Saved to your diary');
+      closeModal();
+      renderLater(); renderDiary(); renderStats();
+      // refresh search grid badges if visible
+      if(resultsWrap.innerHTML) doRefreshBadges();
+    });
+  }
+
+  function doRefreshBadges(){
+    resultsWrap.querySelectorAll('.sleeve').forEach(el=>{
+      const a = data.listened.find(x=>x.id===el.dataset.id);
+      let chip = el.querySelector('.rating-chip');
+      if(a){
+        const html = `${'★'.repeat(a.rating)}${'☆'.repeat(5-a.rating)}`;
+        if(chip) chip.innerHTML = html;
+        else el.insertAdjacentHTML('beforeend', `<div class="rating-chip">${html}</div>`);
+      }
+    });
+  }
+
+  function closeModal(){
+    modalBack.classList.remove('active');
+    currentAlbum = null; currentTracks = []; pendingFavs = []; pendingRating = 0;
+  }
+  modalBack.addEventListener('click', (e)=>{ if(e.target===modalBack) closeModal(); });
+
+  /* ================= LATER VIEW ================= */
+  function renderLater(){
+    const wrap = document.getElementById('laterList');
+    document.getElementById('laterCount').textContent = data.listenLater.length || '';
+    if(!data.listenLater.length){
+      wrap.innerHTML = `<div class="empty"><b>Queue's empty</b>Find an album and tap "Listen later" to save it here.</div>`;
+      return;
+    }
+    wrap.innerHTML = `<div class="grid list-rows">${data.listenLater.map(a=>`
+      <div class="row-card" data-id="${a.id}">
+        <img src="${a.artwork}" alt="">
+        <div class="meta"><div class="name">${esc(a.name)}</div><div class="artist">${esc(a.artist)}</div></div>
+        <button class="qk" data-remove="${a.id}">Remove</button>
+      </div>`).join('')}</div>`;
+    wrap.querySelectorAll('.row-card').forEach(el=>{
+      el.addEventListener('click', (e)=>{
+        if(e.target.dataset.remove) return;
+        const a = data.listenLater.find(x=>x.id===el.dataset.id);
+        if(a) openAlbum(a);
+      });
+    });
+    wrap.querySelectorAll('[data-remove]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        data.listenLater = data.listenLater.filter(x=>x.id!==btn.dataset.remove);
+        save(); renderLater();
+      });
+    });
+  }
+
+  /* ================= DIARY VIEW ================= */
+  function renderDiary(){
+    const wrap = document.getElementById('diaryList');
+    const sorted = [...data.listened].sort((a,b)=> (b.dateListened||'').localeCompare(a.dateListened||''));
+    document.getElementById('diaryCount').textContent = sorted.length || '';
+    if(!sorted.length){
+      wrap.innerHTML = `<div class="empty"><b>No entries yet</b>Mark an album as listened to start your diary.</div>`;
+      return;
+    }
+    wrap.innerHTML = `<div class="grid list-rows">${sorted.map(a=>`
+      <div class="row-card" data-id="${a.id}">
+        <img src="${a.artwork}" alt="">
+        <div class="meta">
+          <div class="name">${esc(a.name)}</div>
+          <div class="artist">${esc(a.artist)}</div>
+          <div class="stars">${'★'.repeat(a.rating)}${'☆'.repeat(5-a.rating)} <span class="mono" style="color:var(--muted); font-size:11px;">· ${fmtDate(a.dateListened)}</span></div>
+        </div>
+      </div>`).join('')}</div>`;
+    wrap.querySelectorAll('.row-card').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const a = sorted.find(x=>x.id===el.dataset.id);
+        if(a) openAlbum(a);
+      });
+    });
+  }
+
+  /* ================= LISTS VIEW ================= */
+  document.getElementById('newListBtn').addEventListener('click', ()=>{
+    const input = document.getElementById('newListName');
+    const name = input.value.trim();
+    if(!name) return;
+    if(data.lists[name]){ toast('A list with that name already exists'); return; }
+    data.lists[name] = [];
+    input.value = '';
+    save(); renderLists();
+  });
+
+  function renderLists(){
+    const wrap = document.getElementById('listsWrap');
+    const names = Object.keys(data.lists);
+    if(!names.length){
+      wrap.innerHTML = `<div class="empty"><b>No lists yet</b>Create a list above — like "Sunday morning albums" or "Vinyl to buy".</div>`;
+      return;
+    }
+    wrap.innerHTML = names.map(n=>{
+      const ids = data.lists[n];
+      const albums = ids.map(id=> data.listened.find(x=>x.id===id) || data.listenLater.find(x=>x.id===id) || data.recents.find(x=>x.id===id)).filter(Boolean);
+      return `<div class="list-card" data-name="${esc(n)}">
+        <h3>${esc(n)}</h3>
+        <div class="list-covers">${albums.slice(0,6).map(a=>`<img src="${a.artwork}" alt="">`).join('') || '<span style="color:var(--muted); font-size:12.5px;">Empty — open an album to add it here.</span>'}</div>
+        <div class="n">${ids.length} album${ids.length===1?'':'s'} · tap to view, long-press title area to delete</div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.list-card').forEach(card=>{
+      card.addEventListener('click', ()=> openListDetail(card.dataset.name));
+    });
+  }
+
+  function openListDetail(name){
+    const ids = data.lists[name] || [];
+    const albums = ids.map(id=> data.listened.find(x=>x.id===id) || data.listenLater.find(x=>x.id===id) || data.recents.find(x=>x.id===id)).filter(Boolean);
+    modalEl.innerHTML = `
+      <div class="modal-handle"></div>
+      <button class="modal-close" id="closeModal">✕</button>
+      <div style="padding:6px 18px;">
+        <h2 style="font-size:26px; margin:6px 0;">${esc(name)}</h2>
+        <div class="settings-row" style="margin-bottom:14px;">
+          <button id="deleteListBtn" style="color:var(--red);">Delete list</button>
+        </div>
+        ${albums.length ? `<div class="grid">${albums.map(sleeveHTML).join('')}</div>` : `<div class="empty"><b>Empty list</b>Open any album and tap it into this list.</div>`}
+      </div>
+    `;
+    modalBack.classList.add('active');
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('deleteListBtn').addEventListener('click', ()=>{
+      delete data.lists[name];
+      save(); closeModal(); renderLists();
+      toast('List deleted');
+    });
+    wireGrid(modalEl, albums);
+    modalEl.querySelectorAll('.sleeve').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const a = albums.find(x=>x.id===el.dataset.id);
+        if(a){ closeModal(); setTimeout(()=>openAlbum(a), 220); }
+      });
+    });
+  }
+
+  /* ================= STATS VIEW ================= */
+  function renderStats(){
+    const wrap = document.getElementById('statsWrap');
+    const listened = data.listened;
+    const total = listened.length;
+    const avg = total ? (listened.reduce((s,a)=>s+a.rating,0)/total).toFixed(1) : '0.0';
+
+    // streak: consecutive days with at least one entry, counting back from today
+    const daySet = new Set(listened.map(a=>a.dateListened));
+    let streak = 0;
+    let cursor = new Date();
+    while(true){
+      const iso = cursor.toISOString().slice(0,10);
+      if(daySet.has(iso)){ streak++; cursor.setDate(cursor.getDate()-1); }
+      else break;
+    }
+
+    // genre counts
+    const genreCount = {};
+    listened.forEach(a=>{ if(a.genre) genreCount[a.genre] = (genreCount[a.genre]||0)+1; });
+    const topGenres = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    // artist counts
+    const artistCount = {};
+    listened.forEach(a=>{ artistCount[a.artist] = (artistCount[a.artist]||0)+1; });
+    const topArtists = Object.entries(artistCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    const maxGenre = topGenres.length ? topGenres[0][1] : 1;
+    const maxArtist = topArtists.length ? topArtists[0][1] : 1;
+
+    wrap.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card"><div class="n">${total}</div><div class="l">Albums logged</div></div>
+        <div class="stat-card"><div class="n">${avg}</div><div class="l">Average rating</div></div>
+        <div class="stat-card"><div class="n">${data.listenLater.length}</div><div class="l">In queue</div></div>
+        <div class="stat-card"><div class="n">${streak}</div><div class="l">Day streak</div></div>
+      </div>
+      ${topGenres.length ? `<div class="section-title"><h2>Top genres</h2></div>
+      ${topGenres.map(([g,c])=>`<div class="bar-row"><div class="lbl">${esc(g)}</div><div class="bar-track"><div class="bar-fill" style="width:${(c/maxGenre*100)}%"></div></div><div class="val">${c}</div></div>`).join('')}` : ''}
+      ${topArtists.length ? `<div class="section-title"><h2>Top artists</h2></div>
+      ${topArtists.map(([a,c])=>`<div class="bar-row"><div class="lbl">${esc(a)}</div><div class="bar-track"><div class="bar-fill" style="width:${(c/maxArtist*100)}%; background:var(--gold);"></div></div><div class="val">${c}</div></div>`).join('')}` : ''}
+      ${!total ? `<div class="empty"><b>Nothing logged yet</b>Your listening stats will build up as you rate albums.</div>` : ''}
+    `;
+  }
+
+  /* ================= BACKUP ================= */
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vinylog-backup-${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Backup downloaded');
+  });
+  document.getElementById('importBtn').addEventListener('click', ()=> document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || typeof parsed !== 'object') throw new Error('bad file');
+        data = Object.assign({ listenLater:[], listened:[], lists:{}, recents:[] }, parsed);
+        save();
+        toast('Backup restored');
+        renderLater(); renderDiary(); renderLists(); renderStats(); renderRecents();
+      }catch(err){
+        toast('Could not read that backup file');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  /* toggle vinyl spin while any fetch is in flight, just a nice touch on search */
+  const brand = document.getElementById('brandSpin');
+  const origFetch = window.fetch;
+  let inflight = 0;
+  window.fetch = function(...args){
+    inflight++; brand.classList.add('spinning');
+    return origFetch.apply(this, args).finally(()=>{
+      inflight--; if(inflight<=0) brand.classList.remove('spinning');
+    });
+  };
+
+})();
+</script>
+</body>
+</html>
